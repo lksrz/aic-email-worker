@@ -2,7 +2,12 @@ name = "aic-email-worker"
 main = "src/index.js"
 compatibility_date = "2024-03-01"
 
-[vars]
-# OPENCLAW_WEBHOOK_URL = "https://your-server.com/api/email"
+# Configure required secrets via wrangler CLI (do NOT hardcode URLs or tokens here):
+#   wrangler secret put WEBHOOK_SECRET       (auth token shared with the webhook server)
+#   wrangler secret put OPENCLAW_WEBHOOK_URL (e.g. https://webhook.yourdomain.com:2083/api/email)
 
-# Use 'wrangler secret put WEBHOOK_SECRET' to set the auth token.
+[observability]
+
+[observability.logs]
+enabled = false
+invocation_logs = true
