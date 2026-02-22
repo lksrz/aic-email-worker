@@ -1,5 +1,15 @@
 import PostalMime from 'postal-mime';
 
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 export default {
   async email(message, env, ctx) {
     const rawEmail = await new Response(message.raw).arrayBuffer();
@@ -16,7 +26,7 @@ export default {
       attachments: (parsedEmail.attachments || []).map(a => ({
         filename: a.filename,
         mimeType: a.mimeType,
-        content: btoa(String.fromCharCode(...new Uint8Array(a.content)))
+        data: arrayBufferToBase64(a.content)
       }))
     };
 
