@@ -1,13 +1,8 @@
 import PostalMime from 'postal-mime';
+import { Buffer } from 'node:buffer';
 
 function arrayBufferToBase64(buffer) {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
+  return Buffer.from(buffer).toString('base64');
 }
 
 export default {
@@ -31,20 +26,34 @@ export default {
     };
 
     try {
-      const response = await fetch(env.OPENCLAW_WEBHOOK_URL, {
+      const payloadString = JSON.stringify(payload);
+
+      // Extract the agent name from the recipient email (e.g., ala1@aicommander.dev -> ala1)
+      const recipientMatch = message.to.match(/^([^@]+)@/);
+      if (!recipientMatch) {
+        throw new Error(`Could not parse username from recipient address: ${message.to}`);
+      }
+      const agentAlias = recipientMatch[1].toLowerCase();
+
+      // Dynamically construct the specific Fly.io agent container webhook route
+      const webhookUrl = `https://aic-${agentAlias}.fly.dev/api/webhook/email`;
+      console.log(`Routing email for ${message.to} -> ${webhookUrl} (Payload: ${payloadString.length} bytes)`);
+
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${env.WEBHOOK_SECRET}`
         },
-        body: JSON.stringify(payload)
+        body: payloadString
       });
 
+      console.log(`Webhook response status: ${response.status}`);
       if (!response.ok) {
         console.error(`Failed to send webhook: ${response.status} ${await response.text()}`);
       }
     } catch (error) {
-      console.error('Error forwarding email to webhook:', error);
+      console.error('Error forwarding email to webhook:', error.message, error.stack);
     }
   }
 };
