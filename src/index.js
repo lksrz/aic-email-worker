@@ -1,8 +1,12 @@
 import PostalMime from 'postal-mime';
-import { Buffer } from 'node:buffer';
 
 function arrayBufferToBase64(buffer) {
-  return Buffer.from(buffer).toString('base64');
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 export default {
@@ -11,6 +15,22 @@ export default {
     const parser = new PostalMime();
     const parsedEmail = await parser.parse(rawEmail);
 
+    const recipient = message.to.toLowerCase();
+    const slug = recipient.split('@')[0];
+
+    // Verify agent exists in KV
+    const agentRaw = await env.AIC_KV.get(`aic_agent:${slug}`);
+    if (!agentRaw) {
+      console.error(`No agent found for slug: ${slug}. Dropping email.`);
+      return;
+    }
+
+    const agent = JSON.parse(agentRaw);
+    if (!agent.gatewaySecret) {
+      console.error(`Agent ${slug} has no gateway secret. Dropping email.`);
+      return;
+    }
+
     const payload = {
       timestamp: new Date().toISOString(),
       to: message.to,
@@ -18,6 +38,7 @@ export default {
       subject: parsedEmail.subject,
       text: parsedEmail.text,
       html: parsedEmail.html,
+      message_id: parsedEmail.messageId,
       attachments: (parsedEmail.attachments || []).map(a => ({
         filename: a.filename,
         mimeType: a.mimeType,
@@ -25,35 +46,27 @@ export default {
       }))
     };
 
+    // Use the custom agents domain if possible, fallback to fly.dev
+    const webhookUrl = `https://aic-${slug}.fly.dev/api/webhook/email`;
+    console.log(`Forwarding email for ${slug} to ${webhookUrl}`);
+
     try {
-      const payloadString = JSON.stringify(payload);
-
-      // Extract the agent name from the recipient email (e.g., ala1@aicommander.dev -> ala1)
-      const recipientMatch = message.to.match(/^([^@]+)@/);
-      if (!recipientMatch) {
-        throw new Error(`Could not parse username from recipient address: ${message.to}`);
-      }
-      const agentAlias = recipientMatch[1].toLowerCase();
-
-      // Dynamically construct the specific Fly.io agent container webhook route
-      const webhookUrl = `https://aic-${agentAlias}.fly.dev/api/webhook/email`;
-      console.log(`Routing email for ${message.to} -> ${webhookUrl} (Payload: ${payloadString.length} bytes)`);
-
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${env.WEBHOOK_SECRET}`
+          'x-agent-token': agent.gatewaySecret
         },
-        body: payloadString
+        body: JSON.stringify(payload)
       });
 
-      console.log(`Webhook response status: ${response.status}`);
       if (!response.ok) {
-        console.error(`Failed to send webhook: ${response.status} ${await response.text()}`);
+        console.error(`Failed to send webhook to ${webhookUrl}: ${response.status} ${await response.text()}`);
+      } else {
+        console.log(`Email successfully forwarded to agent: ${slug}`);
       }
     } catch (error) {
-      console.error('Error forwarding email to webhook:', error.message, error.stack);
+      console.error('Error forwarding email to webhook:', error);
     }
   }
 };
