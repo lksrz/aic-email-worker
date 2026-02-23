@@ -2,6 +2,10 @@ name = "aic-email-worker"
 main = "src/index.js"
 compatibility_date = "2024-03-01"
 
+[[kv_namespaces]]
+binding = "AIC_KV"
+id = "9f63f264ac8843e0a20e9d992416baa1"
+
 # Configure required secrets via wrangler CLI (do NOT hardcode URLs or tokens here):
 #   wrangler secret put WEBHOOK_SECRET       (auth token shared with the webhook server)
 #   wrangler secret put OPENCLAW_WEBHOOK_URL (e.g. https://webhook.yourdomain.com:2083/api/email)
