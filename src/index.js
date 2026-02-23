@@ -16,7 +16,10 @@ export default {
     const parsedEmail = await parser.parse(rawEmail);
 
     const recipient = message.to.toLowerCase();
-    const slug = recipient.split('@')[0];
+    // Robust slug extraction: find the actual email address part first
+    const emailMatch = recipient.match(/([a-z0-9._%+-]+)@[a-z0-9.-]+\.[a-z]{2,}/);
+    const targetEmail = emailMatch ? emailMatch[0] : recipient;
+    const slug = targetEmail.split('@')[0];
 
     // Verify agent exists in KV
     const agentRaw = await env.AIC_KV.get(`aic_agent:${slug}`);
