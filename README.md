@@ -16,6 +16,10 @@ Cloudflare Worker for handling inbound emails via [Email Routing](https://develo
 ## Setup
 
 1.  **Deploy**: Run `npx wrangler deploy` (Wrangler is pinned in `devDependencies`; run `npm ci` first).
+    Wrangler applies the script settings (observability, Logpush, tail consumers) in a separate call after the
+    upload and only warns if that call fails, so read the settings back after every deploy (the Worker's
+    `observability`, `logpush` and `tail_consumers` in `cf workers list`) and treat any mismatch with
+    `wrangler.toml` as a failed deploy.
 2.  **Enable Routing**:
     *   Go to Cloudflare Dashboard -> Email -> Email Routing.
     *   Add a custom address (e.g., `*@aicommander.dev`).
@@ -44,8 +48,10 @@ envelope regardless of what the code logs: the invocation message is the recipie
 info carries `mailFrom`/`rcptTo`/`rawSize` (traces record `cloudflare.email.from/to`). `invocation_logs = false`
 only drops the per-invocation record, not this enrichment of console/exception events. Turning on
 `[observability] enabled` / `[observability.logs] enabled` therefore stores the recipient (and very likely the
-sender) address for every logged line. Keep `traces` and `issues` off for the same reason. Real-time logs
-(`wrangler tail`, dashboard live logs) work without Workers Logs and also show the envelope to whoever is tailing.
+sender) address for every logged line. Keep `traces`, `issues`, `logpush` and tail consumers off for the same
+reason. Residual, platform-level exposure that code cannot remove: real-time logs (`wrangler tail`, dashboard live
+logs) work without Workers Logs and show the envelope (`mailFrom`, `rcptTo`) to any account member who starts a
+tail; nothing is stored unless someone is tailing.
 
 ## Payload Structure
 
