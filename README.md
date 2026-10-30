@@ -4,20 +4,48 @@ Cloudflare Worker for handling inbound emails via [Email Routing](https://develo
 
 ## How it works
 
-1.  Cloudflare receives an email for a configured address.
+1.  Cloudflare receives an email for `<slug>@aicommander.dev` (catch-all rule).
 2.  The Email Routing rule triggers this Worker.
 3.  The Worker parses the email (including attachments) using `postal-mime`.
-4.  The Worker sends a JSON payload to the configured `OPENCLAW_WEBHOOK_URL`.
+4.  The Worker looks up `aic_agent:<slug>` in the `AIC_KV` namespace; unknown slugs and agents without a
+    `gatewaySecret` are dropped.
+5.  The Worker POSTs a JSON payload to `https://aic-<slug>.fly.dev/api/webhook/email` with the agent's
+    `gatewaySecret` in the `x-agent-token` header. A failed or rejected webhook call is logged and the email is
+    not retried.
 
 ## Setup
 
-1.  **Deploy**: Run `npx wrangler deploy`.
-2.  **Configure URL**: Update `wrangler.toml` or set via Dashboard: `OPENCLAW_WEBHOOK_URL`.
-3.  **Set Secret**: Run `npx wrangler secret put WEBHOOK_SECRET`. This token should match the one expected by your OpenClaw webhook skill.
-4.  **Enable Routing**:
+1.  **Deploy**: Run `npx wrangler deploy` (Wrangler is pinned in `devDependencies`; run `npm ci` first).
+2.  **Enable Routing**:
     *   Go to Cloudflare Dashboard -> Email -> Email Routing.
     *   Add a custom address (e.g., `*@aicommander.dev`).
     *   Select "Send to Worker" and pick `aic-email-worker`.
+
+## Logging & privacy
+
+The Worker handles third-party email, so console output is restricted to fixed JSON labels — never addresses,
+slug, subject, body, headers, raw MIME, the KV record, the webhook URL or its response body:
+
+| Event | Extra fields |
+| --- | --- |
+| `email_forwarded` | `status` (HTTP status) |
+| `email_dropped` | `reason`: `no_agent` \| `no_gateway_secret` |
+| `webhook_rejected` | `status` (HTTP status; body is not logged) |
+| `webhook_unreachable` | `error`: error kind (`TypeError`, `SyntaxError`, `RangeError`, `Error`, `NonError`) |
+| `email_failed` | `stage` (`read`, `parse`, `slug`, `lookup`, `agent`, `payload`), `error` kind |
+
+Any error before the webhook call is caught at the `email()` boundary and replaced by
+`new Error("email_worker_failed")`, so the invocation still fails but no original error message or stack (which can
+quote the KV value or the URL) leaves the handler.
+
+**Workers Observability is kept off** (`wrangler.toml` sets every field explicitly, because `wrangler deploy`
+overwrites dashboard settings). Cloudflare enriches every stored event of an `email()` invocation with the email
+envelope regardless of what the code logs: the invocation message is the recipient address, and the email event
+info carries `mailFrom`/`rcptTo`/`rawSize` (traces record `cloudflare.email.from/to`). `invocation_logs = false`
+only drops the per-invocation record, not this enrichment of console/exception events. Turning on
+`[observability] enabled` / `[observability.logs] enabled` therefore stores the recipient (and very likely the
+sender) address for every logged line. Keep `traces` and `issues` off for the same reason. Real-time logs
+(`wrangler tail`, dashboard live logs) work without Workers Logs and also show the envelope to whoever is tailing.
 
 ## Payload Structure
 
@@ -29,11 +57,12 @@ Cloudflare Worker for handling inbound emails via [Email Routing](https://develo
   "subject": "Hello",
   "text": "Body text",
   "html": "<div>...</div>",
+  "message_id": "<id@example.com>",
   "attachments": [
     {
       "filename": "report.pdf",
       "mimeType": "application/pdf",
-      "content": "base64..."
+      "data": "base64..."
     }
   ]
 }

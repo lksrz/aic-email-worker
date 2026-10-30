@@ -11,8 +11,23 @@ id = "9f63f264ac8843e0a20e9d992416baa1"
 #   wrangler secret put WEBHOOK_SECRET       (auth token shared with the webhook server)
 #   wrangler secret put OPENCLAW_WEBHOOK_URL (e.g. https://webhook.yourdomain.com:2083/api/email)
 
+# Workers Observability is deliberately OFF (privacy). For an email() Worker
+# Cloudflare attaches the envelope to every log/exception event it stores
+# (invocation message = recipient address; the email event info carries
+# mailFrom/rcptTo/rawSize), even with invocation_logs = false. See README
+# "Logging & privacy" before turning anything here on. Every field is explicit
+# because `wrangler deploy` overwrites the dashboard settings (an omitted
+# `issues` block turns Issues off; omitted `observability` disables it).
 [observability]
+enabled = false
+redact_query_string = true
 
 [observability.logs]
 enabled = false
-invocation_logs = true
+invocation_logs = false
+
+[observability.traces]
+enabled = false
+
+[observability.issues]
+enabled = false
