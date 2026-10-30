@@ -17,9 +17,11 @@ Cloudflare Worker for handling inbound emails via [Email Routing](https://develo
 
 1.  **Deploy**: Run `npx wrangler deploy` (Wrangler is pinned in `devDependencies`; run `npm ci` first).
     Wrangler applies the script settings (observability, Logpush, tail consumers) in a separate call after the
-    upload and only warns if that call fails, so read the settings back after every deploy (the Worker's
-    `observability`, `logpush` and `tail_consumers` in `cf workers list`) and treat any mismatch with
-    `wrangler.toml` as a failed deploy.
+    upload and only warns if that call fails, so read the settings back after every deploy and treat any
+    mismatch with `wrangler.toml` as a failed deploy: `observability`, `logpush`, `tail_consumers` and
+    `streaming_tail_consumers` from the Cloudflare API
+    `GET /accounts/{account_id}/workers/scripts/aic-email-worker/script-settings` (or, with the Cloudflare
+    `cf` CLI, the Worker's entry in `cf workers list`).
 2.  **Enable Routing**:
     *   Go to Cloudflare Dashboard -> Email -> Email Routing.
     *   Add a custom address (e.g., `*@aicommander.dev`).

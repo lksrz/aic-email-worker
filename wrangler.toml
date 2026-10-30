@@ -4,8 +4,10 @@ compatibility_date = "2024-03-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Privacy: no log export of any kind (Logpush and tail consumers receive the
-# email envelope too). Set explicitly so a deploy also clears values that were
-# changed outside this file (Wrangler omits these keys when they are unset).
+# email envelope too). Set explicitly because Wrangler omits these keys when
+# unset. `wrangler deploy` PATCHes logpush/tail_consumers/observability; it
+# sends streaming_tail_consumers only with the version upload, so verify all
+# of them after a deploy (README "Setup").
 logpush = false
 tail_consumers = []
 streaming_tail_consumers = []
