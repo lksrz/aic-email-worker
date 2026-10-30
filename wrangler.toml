@@ -16,9 +16,8 @@ streaming_tail_consumers = []
 binding = "AIC_KV"
 id = "9f63f264ac8843e0a20e9d992416baa1"
 
-# Configure required secrets via wrangler CLI (do NOT hardcode URLs or tokens here):
-#   wrangler secret put WEBHOOK_SECRET       (auth token shared with the webhook server)
-#   wrangler secret put OPENCLAW_WEBHOOK_URL (e.g. https://webhook.yourdomain.com:2083/api/email)
+# No secrets: the webhook URL is built from the slug and the token is the
+# agent's gatewaySecret from AIC_KV.
 
 # Workers Observability is deliberately OFF (privacy). For an email() Worker
 # Cloudflare attaches the envelope to every log/exception event it stores

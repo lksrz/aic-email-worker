@@ -29,20 +29,13 @@ Cloudflare Worker for handling inbound emails via [Email Routing](https://develo
 
 ## Logging & privacy
 
-The Worker handles third-party email, so console output is restricted to fixed JSON labels — never addresses,
-slug, subject, body, headers, raw MIME, the KV record, the webhook URL or its response body:
+The Worker handles third-party email, so it logs as little as possible: nothing on a successful forward, and only
+fixed strings on a drop or failure (`email dropped: no agent`, `email dropped: no gateway secret`,
+`webhook rejected: <HTTP status>`, `webhook unreachable`) — never addresses, slug, subject, body, the KV record,
+the webhook URL or its response body.
 
-| Event | Extra fields |
-| --- | --- |
-| `email_forwarded` | `status` (HTTP status) |
-| `email_dropped` | `reason`: `no_agent` \| `no_gateway_secret` |
-| `webhook_rejected` | `status` (HTTP status; body is not logged) |
-| `webhook_unreachable` | `error`: error kind (`TypeError`, `SyntaxError`, `RangeError`, `Error`, `NonError`) |
-| `email_failed` | `stage` (`read`, `parse`, `slug`, `lookup`, `agent`, `payload`), `error` kind |
-
-Any error before the webhook call is caught at the `email()` boundary and replaced by
-`new Error("email_worker_failed")`, so the invocation still fails but no original error message or stack (which can
-quote the KV value or the URL) leaves the handler.
+Any other error is caught at the `email()` boundary and replaced by `new Error("email_worker_failed")`, so the
+invocation still fails but no original error message or stack (which can quote the KV value) leaves the handler.
 
 **Workers Observability is kept off** (`wrangler.toml` sets every field explicitly, because `wrangler deploy`
 overwrites dashboard settings). Cloudflare enriches every stored event of an `email()` invocation with the email
